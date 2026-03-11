@@ -1,0 +1,29 @@
+telegram:
+  bot_token: ""  # pode ficar vazio e usar variável TELEGRAM_BOT_TOKEN no .env
+  chat_id: ""    # pode ficar vazio e usar variável TELEGRAM_CHAT_ID no .env
+
+thresholds:
+  cpu_percent: 85            # alerta se CPU > 85%
+  cpu_load_multiplier: 2.0   # alerta se load average > 2x nº de CPUs
+  memory_percent: 90         # alerta se RAM > 90%
+  swap_percent: 50           # alerta se swap > 50%
+  disk_percent: 85           # alerta se disco > 85%
+  ssh_failures_per_hour: 20  # alerta se > 20 tentativas SSH falhadas por hora
+  zombie_count: 5            # alerta se > 5 processos zombie
+
+alerts:
+  cooldown_minutes: 60  # tempo mínimo entre alertas do mesmo tipo
+
+schedule:
+  check_interval_seconds: 300  # verificar a cada 5 minutos
+  daily_summary_time: "08:00"  # hora do resumo diário (timezone local do container)
+
+disk:
+  check_paths:
+    - "/rootfs"          # raiz do host (montada aqui pelo docker-compose)
+    # - "/rootfs/data"   # adicionar se tiveres partições separadas (ex: /data)
+
+docker:
+  ignore_containers: []  # nomes de containers a ignorar nas verificações
+  # ignore_containers:
+  #   - "some-container"

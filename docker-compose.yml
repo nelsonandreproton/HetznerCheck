@@ -1,0 +1,15 @@
+services:
+  hetzner-monitor:
+    build: .
+    restart: unless-stopped
+    pid: "host"           # partilha PID namespace com host (CPU, RAM, processos reais)
+    network_mode: "host"  # partilha rede com host (stats de rede reais + acesso Telegram)
+    volumes:
+      - /:/rootfs:ro                              # disco do host
+      - /var/log:/var/log:ro                      # logs (auth.log, syslog)
+      - /var/run/docker.sock:/var/run/docker.sock:ro  # API Docker
+      - ./config.yml:/app/config.yml:ro
+    env_file:
+      - .env
+    environment:
+      - TZ=Europe/Lisbon
