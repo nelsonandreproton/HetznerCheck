@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 
 from .collectors import collect_all
 from .checker import ThresholdChecker
-from .telegram import TelegramNotifier
+from .telegram import TelegramNotifier, CommandListener
 
 logging.basicConfig(
     level=logging.INFO,
@@ -52,6 +52,9 @@ def run():
     notifier = TelegramNotifier(tg["bot_token"], tg["chat_id"])
     checker = ThresholdChecker(config)
 
+    cmd_listener = CommandListener(tg["bot_token"], tg["chat_id"])
+    cmd_listener.start()
+
     schedule = config.get("schedule", {})
     check_interval = schedule.get("check_interval_seconds", 300)
     daily_time_str = schedule.get("daily_summary_time", "08:00")
@@ -81,11 +84,17 @@ def run():
             for alert in alerts:
                 notifier.send_alert(alert)
 
-            # Resumo diário
+            # Resumo diário agendado
             if datetime.now() >= next_daily:
                 logger.info("A enviar resumo diário...")
                 notifier.send_daily_summary(metrics)
                 next_daily = next_run_at(daily_hour, daily_minute)
+
+            # Resumo a pedido via /server_status
+            if cmd_listener.status_requested.is_set():
+                logger.info("A enviar resumo a pedido (/server_status)...")
+                notifier.send_daily_summary(metrics)
+                cmd_listener.status_requested.clear()
 
         except Exception as e:
             logger.error(f"Erro no ciclo de monitorização: {e}", exc_info=True)
