@@ -1,7 +1,9 @@
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Dict, Optional
+
+from .utils import bytes_human as _bytes_human
 
 logger = logging.getLogger(__name__)
 
@@ -152,9 +154,3 @@ class ThresholdChecker:
         return datetime.now() - state.last_alert_time >= self.cooldown
 
 
-def _bytes_human(n: float) -> str:
-    for unit in ("B", "KB", "MB", "GB", "TB"):
-        if n < 1024:
-            return f"{n:.1f} {unit}"
-        n /= 1024
-    return f"{n:.1f} PB"

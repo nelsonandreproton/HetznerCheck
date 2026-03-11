@@ -2,6 +2,8 @@ import logging
 import requests
 from datetime import datetime
 
+from .utils import bytes_human as _bytes_human, rate_human as _rate_human
+
 logger = logging.getLogger(__name__)
 
 LEVEL_ICON = {
@@ -116,13 +118,3 @@ def _format_summary(metrics: dict) -> str:
     return "\n".join(lines)
 
 
-def _bytes_human(n: float) -> str:
-    for unit in ("B", "KB", "MB", "GB", "TB"):
-        if n < 1024:
-            return f"{n:.1f} {unit}"
-        n /= 1024
-    return f"{n:.1f} PB"
-
-
-def _rate_human(bps: float) -> str:
-    return _bytes_human(bps) + "/s"

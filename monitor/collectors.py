@@ -108,7 +108,7 @@ def get_docker_containers(ignore=None):
         for c in containers:
             if c.name in ignore_set:
                 continue
-            health = c.attrs.get("State", {}).get("Health", {})
+            health = c.attrs.get("State", {}).get("Health") or {}
             result.append({
                 "name": c.name,
                 "status": c.status,  # running, exited, paused, restarting, ...
