@@ -33,7 +33,11 @@ class TelegramNotifier:
                 json={"chat_id": self.chat_id, "text": text, "parse_mode": "HTML"},
                 timeout=10,
             )
-            resp.raise_for_status()
+            if not resp.ok:
+                logger.error(
+                    f"Erro ao enviar mensagem Telegram: {resp.status_code} — {resp.json().get('description', resp.text)}"
+                )
+                return False
             return True
         except Exception as e:
             logger.error(f"Erro ao enviar mensagem Telegram: {e}")
