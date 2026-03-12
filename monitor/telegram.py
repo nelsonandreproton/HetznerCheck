@@ -1,5 +1,4 @@
 import logging
-import threading
 import requests
 from datetime import datetime
 
@@ -53,66 +52,6 @@ class TelegramNotifier:
     def send_daily_summary(self, metrics: dict) -> bool:
         text = _format_summary(metrics)
         return self.send(text)
-
-
-class CommandListener:
-    """Escuta comandos Telegram via long-polling numa thread de fundo.
-
-    Expõe ``status_requested`` (threading.Event) que é ativado quando
-    o comando /server_status é recebido do chat_id autorizado.
-    """
-
-    COMMAND = "/server_status"
-
-    def __init__(self, bot_token: str, authorized_chat_id: str):
-        self._url_base = f"https://api.telegram.org/bot{bot_token}"
-        self._authorized_chat_id = str(authorized_chat_id)
-        self._offset = 0
-        self.status_requested = threading.Event()
-        self._stop_event = threading.Event()
-        self._thread = threading.Thread(target=self._poll_loop, daemon=True, name="CommandListener")
-
-    def start(self):
-        self._thread.start()
-        logger.info("CommandListener iniciado — a aguardar /server_status")
-
-    def stop(self):
-        self._stop_event.set()
-
-    def _poll_loop(self):
-        while not self._stop_event.is_set():
-            try:
-                updates = self._get_updates(timeout=30)
-                for update in updates:
-                    self._offset = update["update_id"] + 1
-                    self._handle(update)
-            except Exception as e:
-                logger.warning(f"CommandListener erro: {e}")
-                self._stop_event.wait(5)  # pausa breve antes de tentar novamente
-
-    def _get_updates(self, timeout: int) -> list:
-        resp = requests.get(
-            f"{self._url_base}/getUpdates",
-            params={"offset": self._offset, "timeout": timeout, "allowed_updates": ["message"]},
-            timeout=timeout + 5,
-        )
-        if not resp.ok:
-            logger.warning(f"getUpdates falhou: {resp.status_code}")
-            return []
-        return resp.json().get("result", [])
-
-    def _handle(self, update: dict):
-        message = update.get("message", {})
-        chat_id = str(message.get("chat", {}).get("id", ""))
-        text = (message.get("text") or "").strip()
-
-        if chat_id != self._authorized_chat_id:
-            logger.warning(f"Comando recebido de chat_id não autorizado: {chat_id}")
-            return
-
-        if text == self.COMMAND or text.startswith(self.COMMAND + " ") or text.startswith(self.COMMAND + "@"):
-            logger.info(f"Comando {self.COMMAND} recebido — a sinalizar envio imediato")
-            self.status_requested.set()
 
 
 def _format_summary(metrics: dict) -> str:
