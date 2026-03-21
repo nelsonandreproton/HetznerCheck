@@ -1,13 +1,14 @@
-"""GarminBot integration: /server_status command handler.
+"""GarminBot integration: /server_status and /container_disk command handlers.
 
 Usage in GarminBot's main.py (after app = tg_bot.build_application()):
 
     import os
-    from monitor.bot_handler import register_server_status_handler
+    from monitor.bot_handler import register_server_status_handler, register_container_disk_handler
     register_server_status_handler(
         app,
         config_path=os.environ.get("HETZNERCHECK_CONFIG_PATH", "/hetznercheck/config.yml"),
     )
+    register_container_disk_handler(app)
 """
 
 from __future__ import annotations
@@ -52,3 +53,25 @@ def register_server_status_handler(app: Application, config_path: str) -> None:
     handler_fn = _make_handler(config_path)
     app.add_handler(CommandHandler("server_status", handler_fn))
     logger.info("HetznerCheck /server_status handler registered (config=%s)", config_path)
+
+
+def register_container_disk_handler(app: Application) -> None:
+    """Register the /container_disk command on an existing Application instance."""
+    from .container_disk import collect_container_disk, format_container_disk
+
+    async def container_disk_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        if not update.effective_message:
+            return
+        try:
+            msg = await update.effective_message.reply_text(
+                "⏳ A calcular uso de disco... pode demorar alguns segundos."
+            )
+            results = await asyncio.to_thread(collect_container_disk)
+            text = format_container_disk(results)
+            await msg.edit_text(text, parse_mode=ParseMode.HTML)
+        except Exception as exc:
+            logger.error("container_disk failed: %s", exc, exc_info=True)
+            await update.effective_message.reply_text("❌ Erro ao obter uso de disco dos containers.")
+
+    app.add_handler(CommandHandler("container_disk", container_disk_command))
+    logger.info("HetznerCheck /container_disk handler registered")
