@@ -24,6 +24,7 @@ disk:
     # - "/rootfs/data"   # adicionar se tiveres partições separadas (ex: /data)
 
 docker:
-  ignore_containers: []  # nomes de containers a ignorar nas verificações
-  # ignore_containers:
-  #   - "some-container"
+  ignore_containers:
+    - "evolution-api"
+    - "birthday-server"
+    - "postgres"
