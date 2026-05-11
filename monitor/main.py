@@ -81,6 +81,11 @@ def run():
             for alert in alerts:
                 notifier.send_alert(alert)
 
+            # Verificar heartbeats dos bots
+            heartbeat_alerts = checker.check_heartbeats()
+            for alert in heartbeat_alerts:
+                notifier.send_alert(alert)
+
             # Resumo diário agendado
             if datetime.now() >= next_daily:
                 logger.info("A enviar resumo diário...")

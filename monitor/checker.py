@@ -1,8 +1,9 @@
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Dict, Optional
 
+from .heartbeat import read_all as _read_heartbeats
 from .utils import bytes_human as _bytes_human
 
 logger = logging.getLogger(__name__)
@@ -131,6 +132,68 @@ class ThresholdChecker:
             self._maybe_alert(alerts, "zombies", "warning", msg)
         else:
             self._clear("zombies")
+
+        return alerts
+
+    def check_heartbeats(self, tolerance_multiplier: float = 1.5) -> list:
+        """Check all bot heartbeats and return alerts for overdue bots.
+
+        A bot is overdue when:
+          now > next_expected_utc * tolerance_multiplier
+
+        The tolerance_multiplier gives bots a grace period before alerting
+        (default: 50% over the expected interval).
+
+        Args:
+            tolerance_multiplier: Fraction of the expected interval added as
+                                  grace period. 1.5 = alert when 50% overdue.
+
+        Returns:
+            List of alert dicts (same format as check()) for overdue bots.
+        """
+        alerts = []
+        now = datetime.now(UTC)
+
+        rows = _read_heartbeats()
+        for row in rows:
+            next_expected_str = row.get("next_expected_utc")
+            if not next_expected_str:
+                continue  # bot didn't set a deadline — skip
+
+            try:
+                next_expected = datetime.fromisoformat(next_expected_str)
+            except ValueError:
+                logger.warning("Heartbeat: invalid next_expected_utc for %s", row["bot_name"])
+                continue
+
+            if next_expected.tzinfo is None:
+                next_expected = next_expected.replace(tzinfo=UTC)
+
+            # Compute grace deadline: stretch the remaining window by multiplier
+            last_run_str = row.get("last_run_utc", "")
+            try:
+                last_run = datetime.fromisoformat(last_run_str)
+                if last_run.tzinfo is None:
+                    last_run = last_run.replace(tzinfo=UTC)
+                interval = next_expected - last_run
+                grace_deadline = last_run + interval * tolerance_multiplier
+            except (ValueError, TypeError):
+                grace_deadline = next_expected  # fallback: no grace
+
+            if now <= grace_deadline:
+                self._clear(f"heartbeat_{row['bot_name']}")
+                continue
+
+            overdue_minutes = int((now - next_expected).total_seconds() / 60)
+            status_note = f" ({row['status']})" if row["status"] != "ok" else ""
+            msg = (
+                f"Bot <b>{row['bot_name']}</b> sem heartbeat há {overdue_minutes} min"
+                f"{status_note}"
+            )
+            if row.get("note"):
+                msg += f"\nÚltima nota: {row['note']}"
+
+            self._maybe_alert(alerts, f"heartbeat_{row['bot_name']}", "warning", msg)
 
         return alerts
 
