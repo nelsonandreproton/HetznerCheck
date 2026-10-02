@@ -32,8 +32,12 @@ def _db_path() -> Path:
 
 def _connect(db: Path) -> sqlite3.Connection:
     db.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(str(db))
-    conn.execute("PRAGMA journal_mode=WAL")  # safe for multi-process concurrent writes
+    conn = sqlite3.connect(str(db), timeout=10)
+    # Rollback journal, not WAL: WAL needs -wal/-shm side files owned by whoever
+    # opens first, which breaks read-only / different-uid containers sharing the
+    # volume. One write per bot per cycle doesn't need it. Also converts an
+    # existing WAL-mode file back (journal mode is persisted in the DB file).
+    conn.execute("PRAGMA journal_mode=DELETE")
     conn.execute("""
         CREATE TABLE IF NOT EXISTS heartbeats (
             bot_name        TEXT PRIMARY KEY,
@@ -103,7 +107,8 @@ def read_all(db: Path | None = None) -> list[dict]:
     if not target.exists():
         return []
     try:
-        conn = _connect(target)
+        # Read-only, no DDL/PRAGMA/mkdir: the watcher mounts the volume :ro.
+        conn = sqlite3.connect(f"{target.resolve().as_uri()}?mode=ro", uri=True, timeout=10)
         rows = conn.execute(
             "SELECT bot_name, last_run_utc, status, next_expected_utc, note FROM heartbeats"
         ).fetchall()
