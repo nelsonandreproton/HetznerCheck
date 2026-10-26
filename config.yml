@@ -16,8 +16,6 @@ alerts:
 
 schedule:
   check_interval_seconds: 300  # verificar a cada 5 minutos
-  daily_summary_time: "08:00"  # hora do resumo diário (timezone local do container)
-
 disk:
   check_paths:
     - "/rootfs"          # raiz do host (montada aqui pelo docker-compose)

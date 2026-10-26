@@ -49,10 +49,6 @@ class TelegramNotifier:
         text = f"{icon} <b>{level_label}</b>\n\n{alert['message']}"
         return self.send(text)
 
-    def send_daily_summary(self, metrics: dict) -> bool:
-        text = _format_summary(metrics)
-        return self.send(text)
-
 
 def _format_summary(metrics: dict) -> str:
     now = metrics["timestamp"].strftime("%Y-%m-%d %H:%M")

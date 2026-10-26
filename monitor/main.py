@@ -3,7 +3,6 @@ import os
 import sys
 import time
 import yaml
-from datetime import datetime, timedelta
 
 from .collectors import collect_all
 from .checker import ThresholdChecker
@@ -29,15 +28,6 @@ def load_config(path: str = "config.yml") -> dict:
     return config
 
 
-def next_run_at(hour: int, minute: int) -> datetime:
-    """Devolve o próximo datetime para o resumo diário."""
-    now = datetime.now()
-    candidate = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
-    if candidate <= now:
-        candidate += timedelta(days=1)
-    return candidate
-
-
 def run():
     config = load_config()
 
@@ -54,21 +44,8 @@ def run():
 
     schedule = config.get("schedule", {})
     check_interval = schedule.get("check_interval_seconds", 300)
-    daily_time_str = schedule.get("daily_summary_time", "08:00")
 
-    try:
-        daily_hour, daily_minute = map(int, daily_time_str.split(":"))
-    except ValueError:
-        logger.error(f"Formato inválido para daily_summary_time: '{daily_time_str}'. Use HH:MM.")
-        sys.exit(1)
-
-    next_daily = next_run_at(daily_hour, daily_minute)
-
-    logger.info(
-        f"Monitor iniciado — intervalo: {check_interval}s, "
-        f"resumo diário: {daily_time_str}, "
-        f"próximo resumo: {next_daily.strftime('%Y-%m-%d %H:%M')}"
-    )
+    logger.info(f"Monitor iniciado — intervalo: {check_interval}s")
     notifier.send("✅ <b>Monitor iniciado</b>\nHetzner VM monitoring ativo.")
 
     while True:
@@ -85,12 +62,6 @@ def run():
             heartbeat_alerts = checker.check_heartbeats()
             for alert in heartbeat_alerts:
                 notifier.send_alert(alert)
-
-            # Resumo diário agendado
-            if datetime.now() >= next_daily:
-                logger.info("A enviar resumo diário...")
-                notifier.send_daily_summary(metrics)
-                next_daily = next_run_at(daily_hour, daily_minute)
 
         except Exception as e:
             logger.error(f"Erro no ciclo de monitorização: {e}", exc_info=True)

@@ -19,7 +19,7 @@ Monitor de VM para Hetzner Cloud. Corre como container Docker na própria VM e e
 
 **Alertas** são enviados quando um threshold é ultrapassado, com cooldown configurável (padrão: 60 min) para evitar spam.
 
-**Resumo diário** com o estado geral da máquina, enviado à hora configurada (padrão: 08:00).
+**Resumo do estado** geral da máquina disponível a pedido através do comando `/server_status` (não é enviado automaticamente).
 
 ## Pré-requisitos
 
@@ -54,7 +54,7 @@ TELEGRAM_CHAT_ID=-100xxxxxxxxxx
 
 ### 3. Ajustar thresholds (opcional)
 
-Edita o `config.yml` para ajustar os limites de alerta, hora do resumo diário, partições a monitorizar, etc.
+Edita o `config.yml` para ajustar os limites de alerta, partições a monitorizar, etc.
 
 ### 4. Iniciar
 
@@ -97,8 +97,6 @@ alerts:
 
 schedule:
   check_interval_seconds: 300   # verificar a cada 5 minutos
-  daily_summary_time: "08:00"   # hora do resumo diário (TZ do container)
-
 disk:
   check_paths:
     - "/rootfs"              # raiz do host
@@ -121,7 +119,7 @@ disk:
 
 ### Timezone
 
-A hora do resumo diário usa a timezone definida no `docker-compose.yml`:
+As horas mostradas nas mensagens usam a timezone definida no `docker-compose.yml`:
 
 ```yaml
 environment:
