@@ -30,7 +30,18 @@ class ThresholdChecker:
         self.cooldown = timedelta(minutes=cooldown_min)
 
         self._states: Dict[str, AlertState] = {}
+        self._pending: Dict[str, int] = {}  # consecutive bad readings per container key
         self._prev_boot_time: Optional[float] = None
+
+    CONFIRM_READINGS = 2
+
+    def _confirmed(self, key: str) -> bool:
+        """Count a bad reading; True once it has been seen CONFIRM_READINGS times in a row."""
+        self._pending[key] = self._pending.get(key, 0) + 1
+        return self._pending[key] >= self.CONFIRM_READINGS
+
+    def _reset_pending(self, key: str) -> None:
+        self._pending.pop(key, None)
 
     def check(self, metrics: dict) -> list:
         alerts = []
@@ -98,19 +109,23 @@ class ThresholdChecker:
         for container in metrics["docker"]:
             name = container["name"]
 
-            if container["status"] not in ("running",):
-                key = f"docker_{name}_down"
+            # Container states need CONFIRM_READINGS consecutive bad readings:
+            # deploys briefly show created/exited/restarting while recreating.
+            key = f"docker_{name}_down"
+            if container["status"] != "running" and self._confirmed(key):
                 msg = f"Container '{name}' está {container['status']}"
                 self._maybe_alert(alerts, key, "critical", msg)
-            else:
-                self._clear(f"docker_{name}_down")
+            elif container["status"] == "running":
+                self._reset_pending(key)
+                self._clear(key)
 
-            if container["health"] == "unhealthy":
-                key = f"docker_{name}_unhealthy"
+            key = f"docker_{name}_unhealthy"
+            if container["health"] == "unhealthy" and self._confirmed(key):
                 msg = f"Container '{name}' unhealthy (healthcheck a falhar)"
                 self._maybe_alert(alerts, key, "critical", msg)
-            else:
-                self._clear(f"docker_{name}_unhealthy")
+            elif container["health"] != "unhealthy":
+                self._reset_pending(key)
+                self._clear(key)
 
         # --- Reinício inesperado ---
         current_boot = metrics["uptime"]["boot_time"]
