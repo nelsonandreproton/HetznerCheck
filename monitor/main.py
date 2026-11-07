@@ -5,6 +5,8 @@ import time
 import yaml
 
 from .collectors import collect_all
+from .container_disk import collect_container_disk, container_disk_to_dicts
+from .snapshot import write_snapshot
 from .checker import ThresholdChecker
 from .telegram import TelegramNotifier
 
@@ -28,6 +30,34 @@ def load_config(path: str = "config.yml") -> dict:
     return config
 
 
+CONTAINER_DISK_INTERVAL = 3600  # seconds between container_disk.json refreshes
+
+
+class SnapshotWriter:
+    """Writes metrics.json every cycle and container_disk.json at most hourly."""
+
+    def __init__(self, status_dir: str):
+        self.status_dir = status_dir
+        self._last_disk: float | None = None
+
+    def write(self, metrics: dict) -> None:
+        try:
+            write_snapshot(os.path.join(self.status_dir, "metrics.json"), metrics)
+        except Exception as e:
+            logger.error(f"Falha ao escrever metrics.json: {e}", exc_info=True)
+
+        now = time.monotonic()
+        if self._last_disk is not None and now - self._last_disk < CONTAINER_DISK_INTERVAL:
+            return
+        self._last_disk = now  # throttle failures too: the scan is expensive
+        try:
+            containers = container_disk_to_dicts(collect_container_disk())
+            write_snapshot(os.path.join(self.status_dir, "container_disk.json"),
+                           {"containers": containers})
+        except Exception as e:
+            logger.error(f"Falha ao escrever container_disk.json: {e}", exc_info=True)
+
+
 def run():
     config = load_config()
 
@@ -45,6 +75,9 @@ def run():
     schedule = config.get("schedule", {})
     check_interval = schedule.get("check_interval_seconds", 300)
 
+    status_dir = os.environ.get("STATUS_DIR")
+    snapshots = SnapshotWriter(status_dir) if status_dir else None
+
     logger.info(f"Monitor iniciado — intervalo: {check_interval}s")
     notifier.send("✅ <b>Monitor iniciado</b>\nHetzner VM monitoring ativo.")
 
@@ -52,6 +85,8 @@ def run():
         cycle_start = time.monotonic()
         try:
             metrics = collect_all(config)
+            if snapshots:
+                snapshots.write(metrics)
 
             # Verificar thresholds e enviar alertas
             alerts = checker.check(metrics)

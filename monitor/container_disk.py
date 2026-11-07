@@ -18,7 +18,7 @@ from __future__ import annotations
 import heapq
 import logging
 import os
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +38,11 @@ class ContainerDiskInfo:
     file_count: int
     top_files: list[tuple[int, str]]  # [(size_bytes, relative_path), ...]
     note: str = ""
+
+
+def container_disk_to_dicts(results: list[ContainerDiskInfo]) -> list[dict]:
+    """Plain, JSON-serializable form of the results (tuples become lists)."""
+    return [asdict(r) for r in results]
 
 
 def _fmt_size(n: int) -> str:
@@ -179,8 +184,13 @@ def collect_container_disk() -> list[ContainerDiskInfo]:
     return results
 
 
-def format_container_disk(results: list[ContainerDiskInfo]) -> str:
-    """Format disk info as HTML for Telegram (max ~4096 chars)."""
+def format_container_disk(results: list[ContainerDiskInfo | dict]) -> str:
+    """Format disk info as HTML for Telegram (max ~4096 chars).
+
+    Accepts ContainerDiskInfo objects or their dict form (from a snapshot).
+    """
+    results = [ContainerDiskInfo(**{**r, "top_files": [tuple(t) for t in r["top_files"]]})
+               if isinstance(r, dict) else r for r in results]
     if not results:
         return "❌ Não foi possível obter informação de disco dos containers."
 

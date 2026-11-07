@@ -19,7 +19,9 @@ Monitor de VM para Hetzner Cloud. Corre como container Docker na própria VM e e
 
 **Alertas** são enviados quando um threshold é ultrapassado, com cooldown configurável (padrão: 60 min) para evitar spam.
 
-**Resumo do estado** geral da máquina disponível a pedido através do comando `/server_status` (não é enviado automaticamente).
+**Resumo do estado** geral da máquina disponível a pedido através do comando `/server_status` (não é enviado automaticamente). `/container_disk` mostra o uso de disco por container.
+
+**Snapshots partilhados:** se `STATUS_DIR` estiver definido, o monitor escreve `metrics.json` (a cada ciclo) e `container_disk.json` (no máximo 1x por hora) nesse diretório, de forma atómica e com `collected_at` em UTC. O GarminBot só lê estes ficheiros (`HETZNERCHECK_STATUS_DIR`, volume montado read-only) e indica a idade dos dados em `/server_status` e `/container_disk` (aviso se > 15 min); não precisa de acesso ao host. Sem `status_dir`, os handlers recolhem em direto (comportamento antigo).
 
 ## Pré-requisitos
 
@@ -143,6 +145,7 @@ HetznerCheck/
     ├── collectors.py     ← recolha de métricas do sistema
     ├── checker.py        ← comparação com thresholds e gestão de cooldown
     ├── telegram.py       ← envio de mensagens e formatação
+    ├── snapshot.py       ← escrita/leitura atómica de snapshots JSON
     └── utils.py          ← utilitários partilhados
 ```
 
