@@ -26,3 +26,4 @@ docker:
     - "evolution-api"
     - "birthday-server"
     - "postgres"
+    - "ptevents"         # disabled 2026-11-09, kept stopped on purpose — remove when re-enabled
